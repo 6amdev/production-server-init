@@ -1,41 +1,56 @@
 # 🚀 Production Server Init
 
-Automated shell script to provision a secure, production-ready Ubuntu server with Nginx (Host) and Docker (Apps).
+Automated shell script to provision a secure Ubuntu server with Nginx (Host), Docker (Apps), and NVM.
 
-Designed for **Ubuntu 24.04 LTS** & **22.04 LTS**.
+## 🏗️ Architecture Flow
+Nginx (Host) routes traffic to either Docker Apps or Static Folders.
 
-## ✨ Features
+```mermaid
+graph TD
+    User -->|HTTPS| Nginx[Nginx Reverse Proxy]
+    Nginx -->|Type 1| Docker[Docker Container (App)]
+    Nginx -->|Type 2| Static[Static Folder (HTML/React)]
 
-* **User Management:** Creates a `prod` user with sudo access (NOPASSWD) and SSH key login.
-* **Security Hardening:**
-    * UFW Firewall configured (SSH, HTTP, HTTPS).
-    * Fail2Ban installed.
-    * **Root login disabled.**
-    * **Password authentication disabled** (Keys only).
-* **Hybrid Stack:**
-    * **Nginx (Host):** Optimized config, Gzip enabled, Modular proxy snippets.
-    * **Docker (Apps):** Latest Docker Engine & Compose v2 installed.
-    * **Node.js (Tooling):** NVM installed for `prod` user.
-* **Helper Tools:** Includes `create_site.sh` to setup new reverse proxies in seconds.
 
-## 🛠 Usage Guide
+🛠 Installation
+Run as root on a fresh Ubuntu server:
 
-### 1. Prerequisites
-* A fresh Ubuntu VPS/Droplet.
-* **Important:** You must add your SSH Public Key to the server (Root) *before* running this script. The script copies root's keys to the new `prod` user.
-
-### 2. Installation
-SSH into your server as **root** and run:
-
-```bash
-# 1. Install Git & Go to /opt
-apt update && apt install -y git
-cd /opt
-
-# 2. Clone this repo (Replace with your repo URL)
-git clone [https://github.com/6amdev/production-server-init.git](https://github.com/YOUR_USERNAME/production-server-init.git)
+# 1. Clone Repo
+git clone [https://github.com/YOUR_USERNAME/production-server-init.git](https://github.com/YOUR_USERNAME/production-server-init.git)
 cd production-server-init
 
-# 3. Run the setup
+# 2. Run Setup
 chmod +x setup.sh
 ./setup.sh
+
+Note: Root login will be disabled. Login as prod on port 2864 after setup.
+
+📖 How to Create Sites
+Login as prod and run: ./scripts/create_site.sh
+
+Scenario A: Docker App (e.g., Node.js/Python on Port 8000)
+Run ./scripts/create_site.sh
+
+Select Type 1 (Reverse Proxy)
+
+Enter Domain (api.witmind.ai) and Port (8000)
+
+Enable SSL: sudo certbot --nginx -d api.witmind.ai
+
+Scenario B: Static Site (e.g., HTML/React)
+Run ./scripts/create_site.sh
+
+Select Type 2 (Static HTML)
+
+Enter Domain (witmind.ai)
+
+Upload files to: /var/www/witmind.ai/
+
+Enable SSL: sudo certbot --nginx -d witmind.ai
+
+⚡ Quick Commands
+New Site: ./scripts/create_site.sh
+
+Deploy Docker: docker compose up -d
+
+Restart Nginx: sudo systemctl restart nginx
