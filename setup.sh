@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ==========================================
-# Production Server Init Script (v2.1 Final)
+# Production Server Init Script (v2.2 Stable Fix)
 # Target: Ubuntu 24.04 / 22.04 LTS
 # User: prod
 # Stack: Nginx (Host) + Docker + NVM
@@ -10,13 +10,22 @@
 # --- 1. CONFIGURATION ---
 NEW_USER="prod"
 TIMEZONE="Asia/Bangkok"
-SSH_PORT=2864  # ⭐ Custom SSH Port (จำเลขนี้ไว้นะครับ)
+SSH_PORT=2864  # Custom SSH Port
 
 echo "🚀 Starting Production Server Provisioning..."
 
-# --- 2. SYSTEM UPDATE ---
+# --- 2. SYSTEM UPDATE & CLEANUP ---
 echo "📦 Updating system packages..."
 export DEBIAN_FRONTEND=noninteractive
+
+# ⚠️ Remove Apache if exists (Prevents Port 80 conflict)
+if systemctl is-active --quiet apache2; then
+    echo "⚠️ Apache detected. Stopping and removing..."
+    systemctl stop apache2
+    systemctl disable apache2
+    apt-get remove --purge apache2 -y
+fi
+
 apt-get update && apt-get upgrade -y
 apt-get install -y curl git unzip htop ufw fail2ban certbot python3-certbot-nginx build-essential
 
@@ -30,7 +39,6 @@ if id "$NEW_USER" &>/dev/null; then
 else
     useradd -m -s /bin/bash $NEW_USER
     usermod -aG sudo $NEW_USER
-    # Passwordless sudo for convenience
     echo "$NEW_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-prod-user
 fi
 
@@ -45,7 +53,7 @@ if [ -f /root/.ssh/authorized_keys ]; then
     chown -R $NEW_USER:$NEW_USER /home/$NEW_USER/.ssh
     echo "✅ SSH Keys copied from root."
 else
-    echo "⚠️ WARNING: No SSH keys found. You must setup password login manually later."
+    echo "⚠️ WARNING: No SSH keys found. Setup password login manually later."
 fi
 
 # --- 5. SECURITY HARDENING ---
@@ -90,15 +98,14 @@ echo "📂 Setting up /var/www base structure..."
 mkdir -p /var/www/html
 chown -R $NEW_USER:www-data /var/www
 chmod -R 775 /var/www
-# Set SGID bit: New files inherit group www-data
 chmod g+s /var/www
 
-# --- 9. NGINX OPTIMIZATION ---
+# --- 9. NGINX OPTIMIZATION (FIXED) ---
 echo "⚡ Tuning Nginx..."
+# ⚠️ REMOVED 'gzip on;' to prevent duplicate directive error
 cat > /etc/nginx/conf.d/optimization.conf <<EOF
 client_max_body_size 64M;
 keepalive_timeout 65;
-gzip on;
 gzip_types text/plain text/css application/json application/javascript text/xml;
 EOF
 
@@ -121,7 +128,6 @@ mkdir -p /home/$NEW_USER/scripts
 cat > /home/$NEW_USER/scripts/create_site.sh <<'EOF'
 #!/bin/bash
 
-# Interactive Site Creator
 echo "-------------------------------------"
 echo "🌐 WitMind Site Creator"
 echo "-------------------------------------"
@@ -138,7 +144,6 @@ read -p "Select [1-2]: " TYPE
 CONFIG="/etc/nginx/sites-available/$DOMAIN"
 
 if [ "$TYPE" == "1" ]; then
-    # --- TYPE 1: PROXY MODE ---
     read -p "Enter Local Port (e.g., 8000): " PORT
     if [ -z "$PORT" ]; then echo "❌ Port is required."; exit 1; fi
 
@@ -147,7 +152,6 @@ if [ "$TYPE" == "1" ]; then
 server {
     listen 80;
     server_name $DOMAIN;
-
     location / {
         proxy_pass http://localhost:$PORT;
         include /etc/nginx/snippets/proxy_params.conf;
@@ -156,15 +160,11 @@ server {
 EOC
 
 elif [ "$TYPE" == "2" ]; then
-    # --- TYPE 2: STATIC MODE ---
     WEB_ROOT="/var/www/$DOMAIN"
     echo "⚙️ Creating Static Config for $DOMAIN -> $WEB_ROOT"
     
-    # Create directory & placeholder
     sudo mkdir -p $WEB_ROOT
     sudo bash -c "echo '<h1>Hello $DOMAIN</h1>' > $WEB_ROOT/index.html"
-    
-    # Fix Permissions (Ensures 'prod' user can upload files here)
     sudo chown -R $USER:www-data $WEB_ROOT
     sudo chmod -R 775 $WEB_ROOT
 
@@ -174,21 +174,17 @@ server {
     server_name $DOMAIN;
     root $WEB_ROOT;
     index index.html index.htm;
-
     location / {
         try_files \$uri \$uri/ /index.html;
     }
 }
 EOC
     echo "📂 Web folder created at: $WEB_ROOT"
-    echo "🚀 Upload your files using: scp -P $SSH_PORT -r ./dist/* $USER@YOUR_IP:$WEB_ROOT/"
-
 else
     echo "❌ Invalid selection."
     exit 1
 fi
 
-# Enable Site
 if [ -f "$CONFIG" ]; then
     sudo ln -sfn $CONFIG /etc/nginx/sites-enabled/
     sudo nginx -t
@@ -210,6 +206,6 @@ chown $NEW_USER:$NEW_USER /home/$NEW_USER/scripts/create_site.sh
 systemctl restart nginx
 echo "✅ Server Provisioned Successfully!"
 echo "----------------------------------------------------"
-echo "⚠️  IMPORTANT: SSH Port changed to $SSH_PORT"
+echo "⚠️  SSH Port: $SSH_PORT"
 echo "👉 Login: ssh -p $SSH_PORT $NEW_USER@$(curl -s ifconfig.me)"
 echo "----------------------------------------------------"
