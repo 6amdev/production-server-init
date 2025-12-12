@@ -33,7 +33,7 @@ apt update && apt install -y git
 cd /opt
 
 # 2. Clone this repo (Replace with your repo URL)
-git clone [https://github.com/YOUR_USERNAME/production-server-init.git](https://github.com/YOUR_USERNAME/production-server-init.git)
+git clone [https://github.com/6amdev/production-server-init.git](https://github.com/YOUR_USERNAME/production-server-init.git)
 cd production-server-init
 
 # 3. Run the setup
