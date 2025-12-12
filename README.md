@@ -2,21 +2,12 @@
 
 Automated shell script to provision a secure Ubuntu server with Nginx (Host), Docker (Apps), and NVM.
 
-## 🏗️ Architecture Flow
-Nginx (Host) routes traffic to either Docker Apps or Static Folders.
-
-```mermaid
-graph TD
-    User -->|HTTPS| Nginx[Nginx Reverse Proxy]
-    Nginx -->|Type 1| Docker[Docker Container (App)]
-    Nginx -->|Type 2| Static[Static Folder (HTML/React)]
-
 
 🛠 Installation
 Run as root on a fresh Ubuntu server:
 
 # 1. Clone Repo
-git clone [https://github.com/YOUR_USERNAME/production-server-init.git](https://github.com/YOUR_USERNAME/production-server-init.git)
+git clone [https://github.com/6amdev/production-server-init.git](https://github.com/YOUR_USERNAME/production-server-init.git)
 cd production-server-init
 
 # 2. Run Setup
